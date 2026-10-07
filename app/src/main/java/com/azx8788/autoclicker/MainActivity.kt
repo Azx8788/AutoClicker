@@ -10,20 +10,22 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.text.InputType
 import android.widget.Button
-import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.RadioGroup
-import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.slider.Slider
 import com.azx8788.autoclicker.engine.ClickEngine
 import com.azx8788.autoclicker.model.Actions
 import com.azx8788.autoclicker.model.ClickAction
@@ -37,9 +39,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
     private lateinit var countText: TextView
     private lateinit var alphaLabel: TextView
-    private lateinit var alphaSeek: SeekBar
+    private lateinit var alphaSlider: Slider
+    private lateinit var tgLayout: MaterialButtonToggleGroup
+    private lateinit var swTouchStop: MaterialSwitch
     private var receiver: BroadcastReceiver? = null
     private var syncing = false
+
+    private val uiHandler = Handler(Looper.getMainLooper())
+    private val reloadRunnable = Runnable { sendReload() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,7 +55,9 @@ class MainActivity : AppCompatActivity() {
         statusText = findViewById(R.id.status)
         countText = findViewById(R.id.clicker_count)
         alphaLabel = findViewById(R.id.alpha_label)
-        alphaSeek = findViewById(R.id.seek_alpha)
+        alphaSlider = findViewById(R.id.slider_alpha)
+        tgLayout = findViewById(R.id.tg_layout)
+        swTouchStop = findViewById(R.id.sw_touch_stop)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -60,31 +69,36 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_params).setOnClickListener { showParamsPicker() }
         findViewById<Button>(R.id.btn_show_panel).setOnClickListener { showPanel() }
         findViewById<Button>(R.id.btn_close_panel).setOnClickListener { closePanel() }
+        findViewById<Button>(R.id.btn_help).setOnClickListener {
+            MaterialAlertDialogBuilder(this)
+                .setTitle("使用说明")
+                .setMessage(R.string.help_text)
+                .setPositiveButton("知道了", null)
+                .show()
+        }
 
-        findViewById<RadioGroup>(R.id.rg_layout).setOnCheckedChangeListener { _, checkedId ->
-            if (syncing) return@setOnCheckedChangeListener
+        tgLayout.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked || syncing) return@addOnButtonCheckedListener
             val v = when (checkedId) {
-                R.id.rb_h -> "h"
-                R.id.rb_min -> "min"
+                R.id.btn_h -> "h"
+                R.id.btn_min -> "min"
                 else -> "v"
             }
             Prefs.setPanelLayout(this, v)
             sendReload()
         }
 
-        alphaSeek.max = 90
-        alphaSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
-                alphaLabel.text = "悬浮窗透明度 ${p + 10}%"
+        alphaSlider.addOnChangeListener { _, value, fromUser ->
+            alphaLabel.text = "悬浮窗透明度 ${value.toInt()}%"
+            if (fromUser) {
+                Prefs.setPanelAlpha(this, value.toInt())
+                uiHandler.removeCallbacks(reloadRunnable)
+                uiHandler.postDelayed(reloadRunnable, 400)
             }
-            override fun onStartTrackingTouch(sb: SeekBar?) {}
-            override fun onStopTrackingTouch(sb: SeekBar?) {
-                Prefs.setPanelAlpha(this@MainActivity, alphaSeek.progress + 10)
-                sendReload()
-            }
-        })
+        }
 
-        findViewById<CheckBox>(R.id.cb_touch_stop).setOnCheckedChangeListener { _, checked ->
+        swTouchStop.setOnCheckedChangeListener { _, checked ->
+            if (syncing) return@setOnCheckedChangeListener
             Prefs.setTouchStop(this, checked)
         }
 
@@ -124,17 +138,15 @@ class MainActivity : AppCompatActivity() {
     private fun refreshManager() {
         syncing = true
         countText.text = "当前共 ${Prefs.getActions(this).size} 个点击器"
-        val v = Prefs.getPanelLayout(this)
-        findViewById<RadioGroup>(R.id.rg_layout).check(
-            when (v) {
-                "h" -> R.id.rb_h
-                "min" -> R.id.rb_min
-                else -> R.id.rb_v
-            })
+        when (Prefs.getPanelLayout(this)) {
+            "h" -> tgLayout.check(R.id.btn_h)
+            "min" -> tgLayout.check(R.id.btn_min)
+            else -> tgLayout.check(R.id.btn_v)
+        }
         val alpha = Prefs.getPanelAlpha(this)
-        alphaSeek.progress = alpha - 10
+        alphaSlider.value = alpha.toFloat()
         alphaLabel.text = "悬浮窗透明度 ${alpha}%"
-        findViewById<CheckBox>(R.id.cb_touch_stop).isChecked = Prefs.getTouchStop(this)
+        swTouchStop.isChecked = Prefs.getTouchStop(this)
         syncing = false
     }
 
@@ -264,6 +276,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        uiHandler.removeCallbacks(reloadRunnable)
         receiver?.let { runCatching { unregisterReceiver(it) } }
         receiver = null
     }
