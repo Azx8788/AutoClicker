@@ -84,7 +84,18 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="－ 减少"/>
+                        android:text="－ 减少"
+                        android:textSize="12sp"/>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_toggle"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:text="● 启用/停用"
+                        android:textSize="12sp"/>
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btn_params"
@@ -93,8 +104,17 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="8dp"
-                        android:text="⚙ 参数"/>
+                        android:text="⚙ 参数"
+                        android:textSize="12sp"/>
                 </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="圆点颜色：蓝=待机  绿=正在点击  灰=已停用"
+                    android:textSize="11sp"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:layout_marginTop="8dp"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -218,6 +238,23 @@
                     android:layout_marginTop="2dp"
                     android:valueFrom="60.0"
                     android:valueTo="150.0"
+                    android:stepSize="1.0"/>
+
+                <TextView
+                    android:id="@+id/marker_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="点击器圆点大小 46dp"
+                    android:textSize="13sp"
+                    android:layout_marginTop="10dp"/>
+
+                <com.google.android.material.slider.Slider
+                    android:id="@+id/slider_marker"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:valueFrom="28.0"
+                    android:valueTo="80.0"
                     android:stepSize="1.0"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

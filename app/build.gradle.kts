@@ -11,8 +11,8 @@ android {
         applicationId = "com.azx8788.autoclicker"
         minSdk = 24
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.4.0"
+        versionCode = 8
+        versionName = "1.5.0"
     }
 
     buildTypes {

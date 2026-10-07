@@ -15,6 +15,7 @@ object Prefs {
     private const val KEY_PANEL_X = "panel_x"
     private const val KEY_PANEL_Y = "panel_y"
     private const val KEY_SCALE = "panel_scale"
+    private const val KEY_MARKER_SIZE = "marker_size"
     private const val SCHEMA_VER = 1
 
     fun getActions(c: Context): List<ClickAction> {
@@ -88,6 +89,17 @@ object Prefs {
     fun setPanelScale(c: Context, percent: Int) {
         c.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
             .putInt(KEY_SCALE, percent.coerceIn(60, 150))
+            .apply()
+    }
+
+    /** 点击器圆点大小 dp（28~80） */
+    fun getMarkerSize(c: Context): Int =
+        c.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+            .getInt(KEY_MARKER_SIZE, 46).coerceIn(28, 80)
+
+    fun setMarkerSize(c: Context, dp: Int) {
+        c.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
+            .putInt(KEY_MARKER_SIZE, dp.coerceIn(28, 80))
             .apply()
     }
 }

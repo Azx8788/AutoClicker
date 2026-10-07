@@ -22,8 +22,10 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -182,7 +184,7 @@ class FloatingPanelService : Service() {
     // ================= 点击器 =================
 
     private fun markerParams(): WindowManager.LayoutParams {
-        val sizePx = dp(MARKER_SIZE)
+        val sizePx = dp(Prefs.getMarkerSize(this))
         return WindowManager.LayoutParams(
             sizePx, sizePx,
             overlayType(),
@@ -192,7 +194,8 @@ class FloatingPanelService : Service() {
     }
 
     private fun buildMarker(a: ClickAction, number: Int): TextView {
-        val sizePx = dp(MARKER_SIZE)
+        val markerDp = Prefs.getMarkerSize(this)
+        val sizePx = dp(markerDp)
         val params = markerParams().apply {
             x = (a.x - sizePx / 2).coerceAtLeast(0)
             y = (a.y - sizePx / 2).coerceAtLeast(0)
@@ -200,15 +203,11 @@ class FloatingPanelService : Service() {
         val tv = TextView(this).apply {
             text = number.toString()
             setTextColor(Color.WHITE)
-            textSize = 16f
+            textSize = (markerDp * 0.35f).coerceAtLeast(10f)
             gravity = Gravity.CENTER
             typeface = Typeface.DEFAULT_BOLD
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(0x991A73E8.toInt())
-                setStroke(dp(2), 0xFF1A73E8.toInt())
-            }
         }
+        applyMarkerStyle(tv, a)
         tv.setOnTouchListener(DragHandler { x, y ->
             a.x = x + sizePx / 2
             a.y = y + sizePx / 2
@@ -216,6 +215,35 @@ class FloatingPanelService : Service() {
         })
         wm.addView(tv, params)
         return tv
+    }
+
+    /** 圆点状态颜色：灰=已停用、绿=正在点击、蓝=待机（已启用未运行） */
+    private fun applyMarkerStyle(tv: TextView, a: ClickAction) {
+        val fill: Int
+        val stroke: Int
+        if (!a.enabled) {
+            fill = 0x66888888.toInt(); stroke = 0xFF9E9E9E.toInt()
+        } else if (ClickEngine.running) {
+            fill = 0xCC22C55E.toInt(); stroke = 0xFF15803D.toInt()
+        } else {
+            fill = 0x991A73E8.toInt(); stroke = 0xFF1A73E8.toInt()
+        }
+        tv.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(fill)
+            setStroke(dp(2), stroke)
+        }
+    }
+
+    private fun refreshMarkerStyles() {
+        markers.forEachIndexed { i, tv -> clickers.getOrNull(i)?.let { applyMarkerStyle(tv, it) } }
+    }
+
+    private fun reloadMarkers() {
+        markers.forEach { runCatching { wm.removeView(it) } }
+        markers.clear()
+        clickers.forEachIndexed { i, a -> markers.add(buildMarker(a, i + 1)) }
+        updateRunState(ClickEngine.running)
     }
 
     private fun loadClickers() {
@@ -251,17 +279,31 @@ class FloatingPanelService : Service() {
     private fun showRemovePicker() {
         if (ClickEngine.running) { toast("请先停止连点"); return }
         if (clickers.isEmpty()) { toast("没有可移除的点击器"); return }
-        showNumberPicker("要关闭数字几的点击器？") { idx -> removeClickerAt(idx) }
+        dismissDialog()
+        val root = dialogRoot()
+        root.addView(label("勾选要删除的点击器（可多选）"))
+        val items = clickers.mapIndexed { i, _ -> "点击器 ${i + 1}" }
+        val (listView, cbs) = buildCheckList(items, BooleanArray(clickers.size))
+        root.addView(listView)
+        root.addView(makeButton("删除选中") {
+            val toRemove = cbs.mapIndexedNotNull { i, cb -> if (cb.isChecked) i else null }.sortedDescending()
+            if (toRemove.isEmpty()) { toast("未勾选任何点击器"); return@makeButton }
+            toRemove.forEach { removeClickerAt(it, silent = true) }
+            dismissDialog()
+            toast("已删除 ${toRemove.size} 个点击器")
+        })
+        root.addView(makeButton("取消") { dismissDialog() })
+        showDialogView(root)
     }
 
-    private fun removeClickerAt(index: Int) {
+    private fun removeClickerAt(index: Int, silent: Boolean = false) {
         if (index < 0 || index >= clickers.size) return
         runCatching { wm.removeView(markers[index]) }
         markers.removeAt(index)
         clickers.removeAt(index)
         markers.forEachIndexed { i, tv -> tv.text = (i + 1).toString() }
         saveClickers()
-        toast("已关闭点击器 ${index + 1}")
+        if (!silent) toast("已关闭点击器 ${index + 1}")
     }
 
     private fun reloadAll() {
@@ -309,10 +351,54 @@ class FloatingPanelService : Service() {
         }
         refreshTouch()
         root.addView(touchBtn)
+        root.addView(makeButton("启用/停用点击器") { dismissDialog(); showEnableDialog() })
         root.addView(makeButton("点击器参数") { dismissDialog(); showParamsPicker() })
-        root.addView(makeButton("透明度与大小") { dismissDialog(); showDisplayDialog() })
+        root.addView(makeButton("显示设置") { dismissDialog(); showDisplayDialog() })
         root.addView(makeButton("取消") { dismissDialog() })
         showDialogView(root)
+    }
+
+    /** 多选启用/停用 */
+    private fun showEnableDialog() {
+        if (ClickEngine.running) { toast("请先停止连点"); return }
+        if (clickers.isEmpty()) { toast("请先添加点击器"); return }
+        dismissDialog()
+        val root = dialogRoot()
+        root.addView(label("勾选=启用，取消勾选=停用"))
+        val init = BooleanArray(clickers.size) { clickers[it].enabled }
+        val items = clickers.mapIndexed { i, _ -> "点击器 ${i + 1}" }
+        val (listView, cbs) = buildCheckList(items, init)
+        root.addView(listView)
+        root.addView(makeButton("保存") {
+            cbs.forEachIndexed { i, cb ->
+                clickers.getOrNull(i)?.enabled = cb.isChecked
+            }
+            saveClickers()
+            refreshMarkerStyles()
+            dismissDialog()
+            toast("已更新启用状态")
+        })
+        root.addView(makeButton("取消") { dismissDialog() })
+        showDialogView(root)
+    }
+
+    /** 多选清单：返回(可滚动视图, 复选框列表) */
+    private fun buildCheckList(items: List<String>, init: BooleanArray): Pair<View, List<CheckBox>> {
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val cbs = mutableListOf<CheckBox>()
+        items.forEachIndexed { i, t ->
+            val cb = CheckBox(this).apply {
+                text = t
+                setTextColor(Color.WHITE)
+                isChecked = init.getOrElse(i) { false }
+            }
+            cbs.add(cb)
+            col.addView(cb)
+        }
+        val sv = ScrollView(this)
+        sv.addView(col)
+        sv.layoutParams = LinearLayout.LayoutParams(dp(240), (items.size * dp(44) + dp(8)).coerceAtMost(dp(340)))
+        return Pair(sv, cbs)
     }
 
     private fun showDisplayDialog() {
@@ -347,6 +433,24 @@ class FloatingPanelService : Service() {
         })
         root.addView(s2)
 
+        val markerLabel = label("点击器圆点大小 ${Prefs.getMarkerSize(this)}dp")
+        root.addView(markerLabel)
+        val s3 = SeekBar(this).apply {
+            max = 52
+            progress = Prefs.getMarkerSize(this@FloatingPanelService) - 28
+        }
+        s3.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
+                markerLabel.text = "点击器圆点大小 ${p + 28}dp"
+            }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {
+                Prefs.setMarkerSize(this@FloatingPanelService, s3.progress + 28)
+                reloadMarkers()
+            }
+        })
+        root.addView(s3)
+
         root.addView(makeButton("完成") { dismissDialog() })
         showDialogView(root)
     }
@@ -365,22 +469,41 @@ class FloatingPanelService : Service() {
 
     private fun showParamsPicker() {
         if (clickers.isEmpty()) { toast("请先添加点击器"); return }
-        showNumberPicker("设置哪个点击器？") { idx -> showParamsEditor(idx) }
-    }
-
-    private fun showParamsEditor(index: Int) {
-        val a = clickers.getOrNull(index) ?: return
         dismissDialog()
         val root = dialogRoot()
-        root.addView(label("点击器 ${index + 1} 设置"))
-        val etInterval = numField(a.intervalMs.toString(), "间隔ms(≥20)")
-        val etPress = numField(a.pressMs.toString(), "时长ms")
-        val etRepeat = numField(a.repeatCount.toString(), "次数(0=不限)")
+        root.addView(label("勾选要设置的点击器（可多选）"))
+        val items = clickers.mapIndexed { i, _ -> "点击器 ${i + 1}" }
+        val (listView, cbs) = buildCheckList(items, BooleanArray(clickers.size))
+        root.addView(listView)
+        root.addView(makeButton("下一步") {
+            val sel = cbs.mapIndexedNotNull { i, cb -> if (cb.isChecked) i else null }
+            if (sel.isEmpty()) { toast("未勾选任何点击器"); return@makeButton }
+            showParamsEditor(sel)
+        })
+        root.addView(makeButton("取消") { dismissDialog() })
+        showDialogView(root)
+    }
+
+    private fun showParamsEditor(indices: List<Int>) {
+        val first = clickers.getOrNull(indices.first()) ?: return
+        dismissDialog()
+        val root = dialogRoot()
+        root.addView(label(if (indices.size == 1) "点击器 ${indices.first() + 1} 设置" else "批量设置 ${indices.size} 个点击器"))
+        val etInterval = numField(first.intervalMs.toString(), "间隔ms(≥20)")
+        val etPress = numField(first.pressMs.toString(), "时长ms")
+        val etRepeat = numField(first.repeatCount.toString(), "次数(0=不限)")
         root.addView(etInterval); root.addView(etPress); root.addView(etRepeat)
         root.addView(makeButton("保存") {
-            a.intervalMs = etInterval.text.toString().toIntOrNull()?.coerceAtLeast(20) ?: 1000
-            a.pressMs = etPress.text.toString().toIntOrNull() ?: 50
-            a.repeatCount = etRepeat.text.toString().toIntOrNull() ?: 0
+            val interval = etInterval.text.toString().toIntOrNull()?.coerceAtLeast(20) ?: 1000
+            val press = etPress.text.toString().toIntOrNull() ?: 50
+            val repeat = etRepeat.text.toString().toIntOrNull() ?: 0
+            indices.forEach { idx ->
+                clickers.getOrNull(idx)?.let { a ->
+                    a.intervalMs = interval
+                    a.pressMs = press
+                    a.repeatCount = repeat
+                }
+            }
             saveClickers()
             dismissDialog()
             toast("已保存")
@@ -456,8 +579,9 @@ class FloatingPanelService : Service() {
             return
         }
         if (!ClickAccessibilityService.ready) { toast("无障碍服务未连接"); return }
+        if (clickers.isEmpty()) { toast("请先添加点击器"); return }
         val active = clickers.filter { it.enabled }
-        if (active.isEmpty()) { toast("请先添加点击器"); return }
+        if (active.isEmpty()) { toast("所有点击器都已停用，请在设置中启用"); return }
         ClickEngine.start(this, active)
     }
 
@@ -470,6 +594,7 @@ class FloatingPanelService : Service() {
         runButton?.text = if (running) "■" else "▶"
         val touchable = !running
         markers.forEach { setMarkerTouchable(it, touchable) }
+        refreshMarkerStyles()
     }
 
     private fun setMarkerTouchable(tv: TextView, touchable: Boolean) {
