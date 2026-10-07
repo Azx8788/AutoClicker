@@ -46,7 +46,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="使用说明：\n1. 点击 Shizuku 一键授权（需先启动 Shizuku）\n2. 点击"打开悬浮窗"\n3. 在悬浮面板中添加点击器\n4. 拖动编号标记到要点击的位置\n5. 点击"开始连点""
+        android:text="使用说明：&#10;1. 点击 Shizuku 一键授权（需先启动 Shizuku）&#10;2. 点击【打开悬浮窗】&#10;3. 在悬浮面板中添加点击器&#10;4. 拖动编号标记到要点击的位置&#10;5. 点击【开始连点】"
         android:textSize="12sp"
         android:textColor="?android:attr/textColorSecondary"
         android:layout_marginTop="24dp"
