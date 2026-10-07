@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">自动点击器</string>
+    <string name="accessibility_desc">用于模拟点击、滑动、返回/主页/通知栏等操作，实现自动连点。</string>
+</resources>
