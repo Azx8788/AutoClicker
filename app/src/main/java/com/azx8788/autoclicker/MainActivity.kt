@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.MotionEvent
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -20,6 +21,7 @@ import com.azx8788.autoclicker.engine.ClickEngine
 import com.azx8788.autoclicker.service.ClickAccessibilityService
 import com.azx8788.autoclicker.service.FloatingPanelService
 import com.azx8788.autoclicker.shizuku.ShizukuAutoGrant
+import com.azx8788.autoclicker.util.Prefs
 
 class MainActivity : AppCompatActivity() {
 
@@ -58,6 +60,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        val cbTouchStop = findViewById<CheckBox>(R.id.cb_touch_stop)
+        cbTouchStop.isChecked = Prefs.getTouchStop(this)
+        cbTouchStop.setOnCheckedChangeListener { _, checked ->
+            Prefs.setTouchStop(this, checked)
+        }
+
         findViewById<Button>(R.id.btn_shizuku).setOnClickListener {
             ShizukuAutoGrant.requestPermissionIfNeeded(this, showDialog = true)
         }
@@ -81,6 +89,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         ShizukuAutoGrant.boot(this)
         updateStatus()
+        findViewById<CheckBox>(R.id.cb_touch_stop).isChecked = Prefs.getTouchStop(this)
         ShizukuAutoGrant.requestPermissionIfNeeded(this, showDialog = false)
     }
 

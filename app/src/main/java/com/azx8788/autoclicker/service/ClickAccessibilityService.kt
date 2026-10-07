@@ -12,6 +12,7 @@ import android.widget.Toast
 import com.azx8788.autoclicker.engine.ClickEngine
 import com.azx8788.autoclicker.model.ActionType
 import com.azx8788.autoclicker.model.ClickAction
+import com.azx8788.autoclicker.util.Prefs
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
@@ -25,6 +26,7 @@ class ClickAccessibilityService : AccessibilityService() {
         const val STATE_ACTION = "com.azx8788.autoclicker.ACC_STATE"
         const val EXTRA_CONNECTED = "connected"
         private const val QUEUE_CAPACITY = 128
+        private const val SETTLE_MS = 40L
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -32,6 +34,7 @@ class ClickAccessibilityService : AccessibilityService() {
     @Volatile private var busy = false
     @Volatile private var stopped = false
     private var volumeDownConsumed = false
+    private var dispatchGen = 0L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -112,6 +115,7 @@ class ClickAccessibilityService : AccessibilityService() {
 
     fun clearPending() {
         stopped = true
+        dispatchGen++
         queue.clear()
         handler.removeCallbacksAndMessages(null)
         busy = false
@@ -131,26 +135,52 @@ class ClickAccessibilityService : AccessibilityService() {
             else -> { dispatchNext(); return }
         }
         busy = true
-        val timeoutRunnable = Runnable { if (busy) { busy = false; dispatchNext() } }
-        dispatchGesture(gesture, object : GestureResultCallback() {
+        val gen = ++dispatchGen
+        val timeoutRunnable = Runnable {
+            // 回调丢失兜底：仅当仍是本代手势时恢复；过期回调作废
+            if (busy && gen == dispatchGen) {
+                busy = false
+                dispatchGen++
+                postNext()
+            }
+        }
+        val ok = dispatchGesture(gesture, object : GestureResultCallback() {
             override fun onCompleted(g: GestureDescription?) {
+                if (gen != dispatchGen) return
                 busy = false
                 handler.removeCallbacks(timeoutRunnable)
-                dispatchNext()
+                postNext()
             }
             override fun onCancelled(g: GestureDescription?) {
+                if (gen != dispatchGen) return   // 过期取消（超时兜底后的迟到回调），忽略
                 busy = false
                 handler.removeCallbacks(timeoutRunnable)
-                if (ClickEngine.running) {
-                    // 真实触摸会取消进行中的注入手势（AOSP: 任何真实 MotionEvent 到达即取消注入）
-                    // → 视为"用户触摸屏幕"，立即停止连点
+                if (ClickEngine.running && Prefs.getTouchStop(this@ClickAccessibilityService)) {
+                    // 真实触摸会取消进行中的注入手势；仅在开关开启时视为用户触摸并停止
                     ClickEngine.stop()
                     Toast.makeText(this@ClickAccessibilityService, "检测到触摸，已停止连点", Toast.LENGTH_SHORT).show()
+                } else if (ClickEngine.running) {
+                    postNext()
                 }
             }
         }, handler)
+        if (!ok) {
+            // 派发被拒绝：恢复队列，间隔后再试
+            busy = false
+            dispatchGen++
+            handler.removeCallbacks(timeoutRunnable)
+            postNext()
+            return
+        }
         val timeout = a.pressMs.toLong().coerceAtLeast(50L) + 2000L
         handler.postDelayed(timeoutRunnable, timeout)
+    }
+
+    /** 手势间隔 40ms（与 CTS 连续点击测试一致）：防止背靠背派发被框架插入 ACTION_CANCEL 伪取消 */
+    private fun postNext() {
+        handler.postDelayed({
+            if (!busy && !stopped && ClickEngine.running) dispatchNext()
+        }, SETTLE_MS)
     }
 
     private fun clickGesture(x: Int, y: Int, pressMs: Int): GestureDescription {

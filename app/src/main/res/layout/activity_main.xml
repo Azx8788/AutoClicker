@@ -47,10 +47,17 @@
             android:text="打开无障碍设置"
             android:textSize="14sp"/>
 
+        <CheckBox android:id="@+id/cb_touch_stop"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="运行时点击屏幕立即停止连点"
+            android:textSize="14sp"
+            android:layout_marginTop="16dp"/>
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="悬浮窗按钮说明：&#10;▶ 开始连点    ■ 停止连点&#10;＋ 添加点击器    － 减少点击器&#10;⚙ 设置（点击器参数 / 悬浮窗透明度）&#10;☰ 回到主界面    ✕ 关闭悬浮窗&#10;⋯ 按住可拖动悬浮窗&#10;&#10;紧急停止（连点运行时）：&#10;· 触摸屏幕任意位置 → 立即停止&#10;· 按【音量减键】→ 立即停止&#10;· 触碰悬浮窗任意位置 → 立即停止&#10;· 按电源键息屏 → 自动停止&#10;· 下拉通知栏点【停止连点】"
+            android:text="悬浮窗按钮说明：&#10;▶ 开始连点    ■ 停止连点&#10;＋ 添加点击器    － 减少点击器&#10;⚙ 设置（参数/透明度/触摸停止开关）&#10;☰ 回到主界面    ✕ 关闭悬浮窗&#10;⋯ 按住可拖动悬浮窗&#10;&#10;紧急停止（连点运行时）：&#10;· 点击屏幕 → 立即停止（见上方开关）&#10;· 按【音量减键】→ 立即停止&#10;· 触碰悬浮窗任意位置 → 立即停止&#10;· 按电源键息屏 → 自动停止&#10;· 下拉通知栏点【停止连点】"
             android:textSize="13sp"
             android:layout_marginTop="24dp"
             android:lineSpacingExtra="4dp"/>

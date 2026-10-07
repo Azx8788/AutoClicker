@@ -244,6 +244,18 @@ class FloatingPanelService : Service() {
         dismissDialog()
         val root = dialogRoot()
         root.addView(label("设置"))
+        val touchStopBtn = makeButton("") { }
+        fun refreshTouchStop() {
+            touchStopBtn.text = "点击屏幕立即停止：${if (Prefs.getTouchStop(this)) "开" else "关"}"
+        }
+        touchStopBtn.setOnClickListener {
+            val v = !Prefs.getTouchStop(this)
+            Prefs.setTouchStop(this, v)
+            refreshTouchStop()
+            toast(if (v) "已开启：触摸屏幕将停止连点" else "已关闭：触摸屏幕不再停止连点")
+        }
+        refreshTouchStop()
+        root.addView(touchStopBtn)
         root.addView(makeButton("点击器参数") { dismissDialog(); showSettingsPicker() })
         root.addView(makeButton("悬浮窗透明度") { dismissDialog(); showOpacityDialog() })
         root.addView(makeButton("取消") { dismissDialog() })
