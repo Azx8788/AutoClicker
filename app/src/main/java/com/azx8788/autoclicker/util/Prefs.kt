@@ -14,6 +14,7 @@ object Prefs {
     private const val KEY_LAYOUT = "panel_layout"
     private const val KEY_PANEL_X = "panel_x"
     private const val KEY_PANEL_Y = "panel_y"
+    private const val KEY_SCALE = "panel_scale"
     private const val SCHEMA_VER = 1
 
     fun getActions(c: Context): List<ClickAction> {
@@ -77,5 +78,16 @@ object Prefs {
     fun setPanelPos(c: Context, x: Int, y: Int) {
         c.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
             .putInt(KEY_PANEL_X, x).putInt(KEY_PANEL_Y, y).apply()
+    }
+
+    /** 悬浮窗大小百分比（60~150） */
+    fun getPanelScale(c: Context): Int =
+        c.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+            .getInt(KEY_SCALE, 100).coerceIn(60, 150)
+
+    fun setPanelScale(c: Context, percent: Int) {
+        c.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
+            .putInt(KEY_SCALE, percent.coerceIn(60, 150))
+            .apply()
     }
 }

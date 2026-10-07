@@ -16,16 +16,20 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
+import android.text.InputType
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import com.azx8788.autoclicker.MainActivity
 import com.azx8788.autoclicker.engine.ClickEngine
 import com.azx8788.autoclicker.model.Actions
 import com.azx8788.autoclicker.model.ClickAction
@@ -37,8 +41,10 @@ class FloatingPanelService : Service() {
     private lateinit var wm: WindowManager
     private var panelView: LinearLayout? = null
     private var runButton: Button? = null
+    private var dialogView: View? = null
     private var receiver: BroadcastReceiver? = null
     private var panelAlpha = 70
+    private var panelScale = 100
     private var panelConsuming = false
 
     private val clickers = mutableListOf<ClickAction>()
@@ -64,6 +70,7 @@ class FloatingPanelService : Service() {
         if (!Settings.canDrawOverlays(this)) { stopSelf(); return }
         wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         panelAlpha = Prefs.getPanelAlpha(this)
+        panelScale = Prefs.getPanelScale(this)
         createChannel()
         startForeground(NOTIF_ID, buildNotification())
         receiver = object : BroadcastReceiver() {
@@ -88,19 +95,45 @@ class FloatingPanelService : Service() {
     private fun buildPanel() {
         val layout = Prefs.getPanelLayout(this)
         val panel = PanelLayout(this).apply {
-            orientation = if (layout == "h") LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+            orientation = if (layout == "v") LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
             setPadding(dp(3), dp(3), dp(3), dp(3))
             background = panelBg()
         }
+
         val run = iconButton(if (ClickEngine.running) "■" else "▶")
         run.setOnTouchListener(TapDragHandler(panel) { toggleRun() })
         panel.addView(run)
         runButton = run
-        if (layout != "min") {
+
+        if (layout == "min") {
+            val close = iconButton("✕")
+            close.setOnTouchListener(TapDragHandler(panel) { closePanel() })
+            panel.addView(close)
+        } else {
+            val add = iconButton("＋")
+            add.setOnTouchListener(TapDragHandler(panel) { addClicker() })
+            panel.addView(add)
+
+            val remove = iconButton("－")
+            remove.setOnTouchListener(TapDragHandler(panel) { showRemovePicker() })
+            panel.addView(remove)
+
+            val settings = iconButton("⚙")
+            settings.setOnTouchListener(TapDragHandler(panel) { showSettingsMenu() })
+            panel.addView(settings)
+
+            val main = iconButton("☰")
+            main.setOnTouchListener(TapDragHandler(panel) {
+                startActivity(Intent(this@FloatingPanelService, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            })
+            panel.addView(main)
+
             val close = iconButton("✕")
             close.setOnTouchListener(TapDragHandler(panel) { closePanel() })
             panel.addView(close)
         }
+
         panel.setOnTouchListener(DragHandler { x, y -> Prefs.setPanelPos(this, x, y) })
 
         val px = Prefs.getPanelX(this)
@@ -124,22 +157,27 @@ class FloatingPanelService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.TOP or Gravity.START }
 
-    private fun iconButton(symbol: String): Button =
-        Button(this).apply {
+    private fun iconButton(symbol: String): Button {
+        val size = dp(btnSizeDp())
+        val margin = dp((2 * panelScale / 100f).toInt().coerceAtLeast(1))
+        return Button(this).apply {
             text = symbol
             setTextColor(Color.WHITE)
-            textSize = 15f
+            textSize = 15f * panelScale / 100f
             minimumWidth = 0
             minimumHeight = 0
             setPadding(0, 0, 0, 0)
-            layoutParams = LinearLayout.LayoutParams(dp(BTN_SIZE), dp(BTN_SIZE)).apply {
-                setMargins(dp(2), dp(2), dp(2), dp(2))
+            layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                setMargins(margin, margin, margin, margin)
             }
             background = GradientDrawable().apply {
                 setColor(0x33FFFFFF)
-                cornerRadius = dp(8).toFloat()
+                cornerRadius = dp(8).toFloat() * panelScale / 100f
             }
         }
+    }
+
+    private fun btnSizeDp(): Int = (BTN_SIZE * panelScale / 100f).toInt().coerceAtLeast(20)
 
     // ================= 点击器 =================
 
@@ -194,16 +232,220 @@ class FloatingPanelService : Service() {
         Prefs.saveActions(this, clickers.toList())
     }
 
+    private fun addClicker() {
+        if (ClickEngine.running) { toast("请先停止连点"); return }
+        val sizePx = dp(MARKER_SIZE)
+        val w = resources.displayMetrics.widthPixels
+        val h = resources.displayMetrics.heightPixels
+        val i = clickers.size
+        val cx = (w / 2 + (i % 5) * dp(30)).coerceAtMost(w - sizePx / 2)
+        val cy = (h / 2 + (i % 5) * dp(30)).coerceAtMost(h - sizePx / 2)
+        val a = ClickAction(label = "点击器${i + 1}", x = cx, y = cy,
+            intervalMs = 1000, pressMs = 50, repeatCount = 0)
+        clickers.add(a)
+        markers.add(buildMarker(a, clickers.size))
+        saveClickers()
+        toast("已添加点击器 ${clickers.size}，拖到目标位置")
+    }
+
+    private fun showRemovePicker() {
+        if (ClickEngine.running) { toast("请先停止连点"); return }
+        if (clickers.isEmpty()) { toast("没有可移除的点击器"); return }
+        showNumberPicker("要关闭数字几的点击器？") { idx -> removeClickerAt(idx) }
+    }
+
+    private fun removeClickerAt(index: Int) {
+        if (index < 0 || index >= clickers.size) return
+        runCatching { wm.removeView(markers[index]) }
+        markers.removeAt(index)
+        clickers.removeAt(index)
+        markers.forEachIndexed { i, tv -> tv.text = (i + 1).toString() }
+        saveClickers()
+        toast("已关闭点击器 ${index + 1}")
+    }
+
     private fun reloadAll() {
         panelAlpha = Prefs.getPanelAlpha(this)
-        markers.forEach { runCatching { wm.removeView(it) } }
-        markers.clear()
+        panelScale = Prefs.getPanelScale(this)
+        saveCurrentPanelPos()
         panelView?.let { runCatching { wm.removeView(it) } }
         panelView = null
+        markers.forEach { runCatching { wm.removeView(it) } }
+        markers.clear()
         buildPanel()
         loadClickers()
         updateRunState(ClickEngine.running)
         if (clickers.isEmpty() && ClickEngine.running) ClickEngine.stop()
+    }
+
+    private fun saveCurrentPanelPos() {
+        (panelView?.layoutParams as? WindowManager.LayoutParams)?.let {
+            Prefs.setPanelPos(this, it.x, it.y)
+        }
+    }
+
+    private fun rebuildPanel() {
+        saveCurrentPanelPos()
+        panelView?.let { runCatching { wm.removeView(it) } }
+        panelView = null
+        buildPanel()
+        updateRunState(ClickEngine.running)
+    }
+
+    // ================= 设置弹窗 =================
+
+    private fun showSettingsMenu() {
+        dismissDialog()
+        val root = dialogRoot()
+        root.addView(label("设置"))
+        val touchBtn = makeButton("") {}
+        fun refreshTouch() {
+            touchBtn.text = "点击屏幕立即停止：${if (Prefs.getTouchStop(this)) "开" else "关"}"
+        }
+        touchBtn.setOnClickListener {
+            val v = !Prefs.getTouchStop(this)
+            Prefs.setTouchStop(this, v)
+            refreshTouch()
+        }
+        refreshTouch()
+        root.addView(touchBtn)
+        root.addView(makeButton("点击器参数") { dismissDialog(); showParamsPicker() })
+        root.addView(makeButton("透明度与大小") { dismissDialog(); showDisplayDialog() })
+        root.addView(makeButton("取消") { dismissDialog() })
+        showDialogView(root)
+    }
+
+    private fun showDisplayDialog() {
+        dismissDialog()
+        val root = dialogRoot()
+
+        val alphaLabel = label("悬浮窗透明度 ${panelAlpha}%")
+        root.addView(alphaLabel)
+        val s1 = SeekBar(this).apply { max = 90; progress = panelAlpha - 10 }
+        s1.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
+                val percent = p + 10
+                alphaLabel.text = "悬浮窗透明度 ${percent}%"
+                applyPanelAlpha(percent)
+            }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        })
+        root.addView(s1)
+
+        val scaleLabel = label("悬浮窗大小 ${panelScale}%")
+        root.addView(scaleLabel)
+        val s2 = SeekBar(this).apply { max = 90; progress = panelScale - 60 }
+        s2.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
+                val percent = p + 60
+                scaleLabel.text = "悬浮窗大小 ${percent}%"
+                applyPanelScale(percent)
+            }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        })
+        root.addView(s2)
+
+        root.addView(makeButton("完成") { dismissDialog() })
+        showDialogView(root)
+    }
+
+    private fun applyPanelAlpha(percent: Int) {
+        panelAlpha = percent.coerceIn(10, 100)
+        Prefs.setPanelAlpha(this, panelAlpha)
+        panelView?.background = panelBg()
+    }
+
+    private fun applyPanelScale(percent: Int) {
+        panelScale = percent.coerceIn(60, 150)
+        Prefs.setPanelScale(this, panelScale)
+        rebuildPanel()
+    }
+
+    private fun showParamsPicker() {
+        if (clickers.isEmpty()) { toast("请先添加点击器"); return }
+        showNumberPicker("设置哪个点击器？") { idx -> showParamsEditor(idx) }
+    }
+
+    private fun showParamsEditor(index: Int) {
+        val a = clickers.getOrNull(index) ?: return
+        dismissDialog()
+        val root = dialogRoot()
+        root.addView(label("点击器 ${index + 1} 设置"))
+        val etInterval = numField(a.intervalMs.toString(), "间隔ms(≥20)")
+        val etPress = numField(a.pressMs.toString(), "时长ms")
+        val etRepeat = numField(a.repeatCount.toString(), "次数(0=不限)")
+        root.addView(etInterval); root.addView(etPress); root.addView(etRepeat)
+        root.addView(makeButton("保存") {
+            a.intervalMs = etInterval.text.toString().toIntOrNull()?.coerceAtLeast(20) ?: 1000
+            a.pressMs = etPress.text.toString().toIntOrNull() ?: 50
+            a.repeatCount = etRepeat.text.toString().toIntOrNull() ?: 0
+            saveClickers()
+            dismissDialog()
+            toast("已保存")
+        })
+        root.addView(makeButton("取消") { dismissDialog() })
+        showDialogView(root)
+    }
+
+    private fun showNumberPicker(title: String, onPick: (Int) -> Unit) {
+        dismissDialog()
+        val root = dialogRoot()
+        root.addView(label(title))
+        var row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        root.addView(row)
+        clickers.forEachIndexed { i, _ ->
+            if (i > 0 && i % 5 == 0) {
+                row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                root.addView(row)
+            }
+            row.addView(numberButton(i + 1) { dismissDialog(); onPick(i) })
+        }
+        root.addView(makeButton("取消") { dismissDialog() })
+        showDialogView(root)
+    }
+
+    private fun numField(value: String, hintText: String): EditText =
+        EditText(this).apply {
+            hint = hintText
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.LTGRAY)
+            setText(value)
+        }
+
+    private fun dialogRoot(): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = dialogBg()
+        }
+
+    private fun label(t: String): TextView =
+        TextView(this).apply {
+            text = t
+            setTextColor(Color.WHITE)
+            textSize = 14f
+        }
+
+    private fun showDialogView(v: View) {
+        dialogView = v
+        runCatching { wm.addView(v, dialogParams()) }
+    }
+
+    private fun dialogParams(): WindowManager.LayoutParams =
+        WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            overlayType(),
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.CENTER }
+
+    private fun dismissDialog() {
+        dialogView?.let { runCatching { wm.removeView(it) } }
+        dialogView = null
     }
 
     // ================= 运行控制 =================
@@ -215,7 +457,7 @@ class FloatingPanelService : Service() {
         }
         if (!ClickAccessibilityService.ready) { toast("无障碍服务未连接"); return }
         val active = clickers.filter { it.enabled }
-        if (active.isEmpty()) { toast("请先在应用里添加点击器"); return }
+        if (active.isEmpty()) { toast("请先添加点击器"); return }
         ClickEngine.start(this, active)
     }
 
@@ -253,6 +495,11 @@ class FloatingPanelService : Service() {
         cornerRadius = dp(12).toFloat()
     }
 
+    private fun dialogBg(): GradientDrawable = GradientDrawable().apply {
+        setColor(0xF0222222.toInt())
+        cornerRadius = dp(12).toFloat()
+    }
+
     private fun createChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val ch = NotificationChannel(CHAN, "悬浮窗", NotificationManager.IMPORTANCE_LOW)
@@ -272,6 +519,23 @@ class FloatingPanelService : Service() {
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "停止连点", stopIntent)
             .build()
     }
+
+    private fun makeButton(text: String, onClick: () -> Unit): Button =
+        Button(this).apply {
+            this.text = text
+            setOnClickListener { onClick() }
+            setTextColor(Color.WHITE)
+        }
+
+    private fun numberButton(n: Int, onClick: () -> Unit): Button =
+        Button(this).apply {
+            text = n.toString()
+            setOnClickListener { onClick() }
+            setTextColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply {
+                setMargins(dp(4), dp(4), dp(4), dp(4))
+            }
+        }
 
     private fun toast(msg: String) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
@@ -367,6 +631,7 @@ class FloatingPanelService : Service() {
     override fun onDestroy() {
         receiver?.let { runCatching { unregisterReceiver(it) } }
         receiver = null
+        dismissDialog()
         markers.forEach { runCatching { wm.removeView(it) } }
         markers.clear()
         panelView?.let { runCatching { wm.removeView(it) } }

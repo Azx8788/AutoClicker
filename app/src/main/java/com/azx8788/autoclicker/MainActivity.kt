@@ -40,6 +40,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var countText: TextView
     private lateinit var alphaLabel: TextView
     private lateinit var alphaSlider: Slider
+    private lateinit var scaleLabel: TextView
+    private lateinit var scaleSlider: Slider
     private lateinit var tgLayout: MaterialButtonToggleGroup
     private lateinit var swTouchStop: MaterialSwitch
     private var receiver: BroadcastReceiver? = null
@@ -56,6 +58,8 @@ class MainActivity : AppCompatActivity() {
         countText = findViewById(R.id.clicker_count)
         alphaLabel = findViewById(R.id.alpha_label)
         alphaSlider = findViewById(R.id.slider_alpha)
+        scaleLabel = findViewById(R.id.scale_label)
+        scaleSlider = findViewById(R.id.slider_scale)
         tgLayout = findViewById(R.id.tg_layout)
         swTouchStop = findViewById(R.id.sw_touch_stop)
 
@@ -92,6 +96,15 @@ class MainActivity : AppCompatActivity() {
             alphaLabel.text = "悬浮窗透明度 ${value.toInt()}%"
             if (fromUser) {
                 Prefs.setPanelAlpha(this, value.toInt())
+                uiHandler.removeCallbacks(reloadRunnable)
+                uiHandler.postDelayed(reloadRunnable, 400)
+            }
+        }
+
+        scaleSlider.addOnChangeListener { _, value, fromUser ->
+            scaleLabel.text = "悬浮窗大小 ${value.toInt()}%"
+            if (fromUser) {
+                Prefs.setPanelScale(this, value.toInt())
                 uiHandler.removeCallbacks(reloadRunnable)
                 uiHandler.postDelayed(reloadRunnable, 400)
             }
@@ -146,6 +159,9 @@ class MainActivity : AppCompatActivity() {
         val alpha = Prefs.getPanelAlpha(this)
         alphaSlider.value = alpha.toFloat()
         alphaLabel.text = "悬浮窗透明度 ${alpha}%"
+        val scale = Prefs.getPanelScale(this)
+        scaleSlider.value = scale.toFloat()
+        scaleLabel.text = "悬浮窗大小 ${scale}%"
         swTouchStop.isChecked = Prefs.getTouchStop(this)
         syncing = false
     }
