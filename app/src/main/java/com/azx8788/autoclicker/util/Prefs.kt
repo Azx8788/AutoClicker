@@ -11,6 +11,9 @@ object Prefs {
     private const val KEY_VER = "schema_ver"
     private const val KEY_ALPHA = "panel_alpha"
     private const val KEY_TOUCH_STOP = "touch_stop"
+    private const val KEY_LAYOUT = "panel_layout"
+    private const val KEY_PANEL_X = "panel_x"
+    private const val KEY_PANEL_Y = "panel_y"
     private const val SCHEMA_VER = 1
 
     fun getActions(c: Context): List<ClickAction> {
@@ -34,7 +37,7 @@ object Prefs {
     /** 悬浮窗不透明度百分比（10~100） */
     fun getPanelAlpha(c: Context): Int =
         c.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-            .getInt(KEY_ALPHA, 90).coerceIn(10, 100)
+            .getInt(KEY_ALPHA, 70).coerceIn(10, 100)
 
     fun setPanelAlpha(c: Context, percent: Int) {
         c.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
@@ -51,5 +54,28 @@ object Prefs {
         c.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
             .putBoolean(KEY_TOUCH_STOP, enabled)
             .apply()
+    }
+
+    /** 悬浮窗按钮排列：v=竖排 h=横排 min=极简 */
+    fun getPanelLayout(c: Context): String =
+        c.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+            .getString(KEY_LAYOUT, "v") ?: "v"
+
+    fun setPanelLayout(c: Context, layout: String) {
+        c.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
+            .putString(KEY_LAYOUT, layout).apply()
+    }
+
+    fun getPanelX(c: Context): Int =
+        c.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+            .getInt(KEY_PANEL_X, Int.MIN_VALUE)
+
+    fun getPanelY(c: Context): Int =
+        c.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+            .getInt(KEY_PANEL_Y, Int.MIN_VALUE)
+
+    fun setPanelPos(c: Context, x: Int, y: Int) {
+        c.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
+            .putInt(KEY_PANEL_X, x).putInt(KEY_PANEL_Y, y).apply()
     }
 }

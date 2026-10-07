@@ -59,4 +59,5 @@ data class ClickAction(
 object Actions {
     const val STATE = "com.azx8788.autoclicker.STATE"
     const val EXTRA_RUNNING = "running"
+    const val RELOAD = "com.azx8788.autoclicker.RELOAD"
 }
