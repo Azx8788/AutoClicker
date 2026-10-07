@@ -141,7 +141,12 @@ class ClickAccessibilityService : AccessibilityService() {
             override fun onCancelled(g: GestureDescription?) {
                 busy = false
                 handler.removeCallbacks(timeoutRunnable)
-                dispatchNext()
+                if (ClickEngine.running) {
+                    // 真实触摸会取消进行中的注入手势（AOSP: 任何真实 MotionEvent 到达即取消注入）
+                    // → 视为"用户触摸屏幕"，立即停止连点
+                    ClickEngine.stop()
+                    Toast.makeText(this@ClickAccessibilityService, "检测到触摸，已停止连点", Toast.LENGTH_SHORT).show()
+                }
             }
         }, handler)
         val timeout = a.pressMs.toLong().coerceAtLeast(50L) + 2000L

@@ -431,7 +431,7 @@ class FloatingPanelService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHAN)
             .setContentTitle("自动点击器")
-            .setContentText("悬浮窗运行中（音量减键/触碰面板可停止）")
+            .setContentText("悬浮窗运行中（触摸屏幕或按音量减键可停止）")
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .setOngoing(true)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "停止连点", stopIntent)
