@@ -20,10 +20,15 @@ jobs:
         env:
           KS: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
         run: |
+          echo "HOME=$HOME"
+          echo "ANDROID_USER_HOME=${ANDROID_USER_HOME:-<unset>}"
+          echo "ANDROID_SDK_HOME=${ANDROID_SDK_HOME:-<unset>}"
           if [ -n "$KS" ]; then
             mkdir -p ~/.android
             echo "$KS" | base64 -d > ~/.android/debug.keystore
             chmod 600 ~/.android/debug.keystore
+            cp ~/.android/debug.keystore ci-debug.keystore
+            echo "keystore restored: $(wc -c < ci-debug.keystore) bytes"
           fi
 
       - name: Make gradlew executable
@@ -31,6 +36,22 @@ jobs:
 
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Verify APK signature matches fixed keystore
+        run: |
+          [ -f ci-debug.keystore ] || { echo "no fixed keystore, skip"; exit 0; }
+          APKSIGNER=$(ls $ANDROID_HOME/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          if [ -z "$APKSIGNER" ]; then echo "apksigner not found, skip"; exit 0; fi
+          APK=$(ls app/build/outputs/apk/debug/*.apk)
+          APK_SHA=$("$APKSIGNER" verify --print-certs "$APK" | grep -oP 'SHA-256 digest: \K[0-9a-f]+' | head -1)
+          KS_SHA=$(keytool -exportcert -keystore ci-debug.keystore -storepass android -alias androiddebugkey 2>/dev/null | sha256sum | awk '{print $1}')
+          echo "APK signer SHA-256: $APK_SHA"
+          echo "Keystore  SHA-256: $KS_SHA"
+          if [ "$APK_SHA" != "$KS_SHA" ]; then
+            echo "::error::APK signature does NOT match fixed keystore!"
+            exit 1
+          fi
+          echo "signature OK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

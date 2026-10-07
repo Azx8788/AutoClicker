@@ -16,6 +16,15 @@ android {
     }
 
     buildTypes {
+        debug {
+            // 固定 debug 签名：CI 注入 ci-debug.keystore 时启用，保证跨构建签名一致
+            val ks = rootProject.file("ci-debug.keystore")
+            if (ks.exists()) {
+                signingConfig = signingConfigs.getByName("debug").apply {
+                    storeFile = ks
+                }
+            }
+        }
         release {
             isMinifyEnabled = false
         }

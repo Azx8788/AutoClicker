@@ -12,3 +12,4 @@ captures/
 *.dex
 *.keystore
 *.jks
+ci-debug.keystore
