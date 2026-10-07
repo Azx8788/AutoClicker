@@ -1,55 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:fitsSystemWindows="true"
-    android:padding="16dp"
-    android:gravity="center">
+    android:fitsSystemWindows="true">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="自动点击器"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="16dp"/>
-
-    <TextView
-        android:id="@+id/status"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="无障碍服务：未开启"
-        android:textSize="14sp"
-        android:layout_marginBottom="24dp"/>
-
-    <Button android:id="@+id/btn_run"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="▶ 打开悬浮窗"
-        android:textSize="16sp"
-        android:layout_marginBottom="12dp"/>
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:gravity="center">
 
-    <Button android:id="@+id/btn_shizuku"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="⚡ Shizuku 一键授权（自动开启无障碍+悬浮窗）"
-        android:textSize="14sp"
-        android:layout_marginBottom="12dp"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="自动点击器"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
 
-    <Button android:id="@+id/btn_open_acc"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="打开无障碍设置"
-        android:textSize="14sp"/>
+        <TextView
+            android:id="@+id/status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="无障碍服务：未开启"
+            android:textSize="14sp"
+            android:layout_marginBottom="20dp"/>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="使用说明：&#10;1. 点击 Shizuku 一键授权（需先启动 Shizuku）&#10;2. 点击【打开悬浮窗】&#10;3. 在悬浮面板中添加点击器&#10;4. 拖动编号标记到要点击的位置&#10;5. 点击【开始连点】"
-        android:textSize="12sp"
-        android:textColor="?android:attr/textColorSecondary"
-        android:layout_marginTop="24dp"
-        android:lineSpacingExtra="4dp"/>
+        <Button android:id="@+id/btn_run"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="▶ 打开悬浮窗"
+            android:textSize="16sp"
+            android:layout_marginBottom="12dp"/>
 
-</LinearLayout>
+        <Button android:id="@+id/btn_shizuku"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⚡ Shizuku 一键授权（无障碍+悬浮窗）"
+            android:textSize="14sp"
+            android:layout_marginBottom="12dp"/>
+
+        <Button android:id="@+id/btn_open_acc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="打开无障碍设置"
+            android:textSize="14sp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="悬浮窗按钮说明：&#10;▶ 开始连点    ■ 停止连点&#10;＋ 添加点击器    － 减少点击器&#10;⚙ 设置（点击器参数 / 悬浮窗透明度）&#10;☰ 回到主界面    ✕ 关闭悬浮窗&#10;⋯ 按住可拖动悬浮窗"
+            android:textSize="13sp"
+            android:layout_marginTop="24dp"
+            android:lineSpacingExtra="4dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="使用方法：&#10;1. 点【Shizuku 一键授权】自动开启无障碍和悬浮窗权限&#10;2. 点【打开悬浮窗】调出控制面板&#10;3. 用 ＋ 添加点击器（显示为带编号的圆点）&#10;4. 把圆点拖到要点击的位置&#10;5. 点 ▶ 开始连点（运行时圆点不可拖动，点击会穿透到下方应用）"
+            android:textSize="12sp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:layout_marginTop="16dp"
+            android:lineSpacingExtra="4dp"/>
+
+    </LinearLayout>
+</ScrollView>
