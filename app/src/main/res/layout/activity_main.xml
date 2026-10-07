@@ -4,52 +4,52 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:fitsSystemWindows="true"
-    android:padding="12dp">
+    android:padding="16dp"
+    android:gravity="center">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="自动点击器"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"/>
 
     <TextView
         android:id="@+id/status"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="无障碍服务：未开启"
-        android:textSize="14sp"/>
+        android:textSize="14sp"
+        android:layout_marginBottom="24dp"/>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/list"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="8dp"/>
-
-    <LinearLayout
+    <Button android:id="@+id/btn_run"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="8dp">
-
-        <Button android:id="@+id/btn_add"
-            android:layout_width="0dp" android:layout_height="wrap_content"
-            android:layout_weight="1" android:text="＋ 添加点"/>
-        <Button android:id="@+id/btn_run"
-            android:layout_width="0dp" android:layout_height="wrap_content"
-            android:layout_weight="1" android:text="▶ 开始"/>
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="4dp">
-
-        <Button android:id="@+id/btn_float"
-            android:layout_width="0dp" android:layout_height="wrap_content"
-            android:layout_weight="1" android:text="悬浮窗"/>
-        <Button android:id="@+id/btn_open_acc"
-            android:layout_width="0dp" android:layout_height="wrap_content"
-            android:layout_weight="1" android:text="无障碍设置"/>
-    </LinearLayout>
+        android:text="▶ 打开悬浮窗"
+        android:textSize="16sp"
+        android:layout_marginBottom="12dp"/>
 
     <Button android:id="@+id/btn_shizuku"
-        android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="⚡ Shizuku 一键授权（自动开启无障碍）"/>
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="⚡ Shizuku 一键授权（自动开启无障碍+悬浮窗）"
+        android:textSize="14sp"
+        android:layout_marginBottom="12dp"/>
+
+    <Button android:id="@+id/btn_open_acc"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="打开无障碍设置"
+        android:textSize="14sp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="使用说明：\n1. 点击 Shizuku 一键授权（需先启动 Shizuku）\n2. 点击"打开悬浮窗"\n3. 在悬浮面板中添加点击器\n4. 拖动编号标记到要点击的位置\n5. 点击"开始连点""
+        android:textSize="12sp"
+        android:textColor="?android:attr/textColorSecondary"
+        android:layout_marginTop="24dp"
+        android:lineSpacingExtra="4dp"/>
+
 </LinearLayout>

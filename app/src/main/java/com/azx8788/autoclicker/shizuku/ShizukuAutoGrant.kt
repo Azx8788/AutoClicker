@@ -67,14 +67,17 @@ object ShizukuAutoGrant {
                 ok = runShell(ctx, "appops", "set", ctx.packageName,
                     "ACCESS_RESTRICTED_SETTINGS", "allow").first && ok
             }
-            // 3) 主路：shell 直写 enabled_accessibility_services（追加，unflatten 判重）
+            // 3) 授予悬浮窗权限
+            ok = runShell(ctx, "appops", "set", ctx.packageName,
+                "SYSTEM_ALERT_WINDOW", "allow").first && ok
+            // 4) 主路：shell 直写 enabled_accessibility_services（追加，unflatten 判重）
             ok = runShell(ctx, "settings", "put", "secure",
                 "enabled_accessibility_services", mergeServices(ctx)).first && ok
             ok = runShell(ctx, "settings", "put", "secure",
                 "accessibility_enabled", "1").first && ok
-            // 4) 辅路：pm grant 生效后应用自身也可直写
+            // 5) 辅路：pm grant 生效后应用自身也可直写
             try { enableAccessibilitySelf(ctx) } catch (t: Throwable) {}
-            toast(ctx, if (ok) "无障碍已自动开启" else "部分命令失败，请查看日志或手动开启")
+            toast(ctx, if (ok) "无障碍+悬浮窗权限已自动授予" else "部分命令失败，请查看日志或手动开启")
         }
     }
 
