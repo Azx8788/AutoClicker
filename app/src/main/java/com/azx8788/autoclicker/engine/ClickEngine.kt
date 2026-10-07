@@ -1,11 +1,14 @@
 package com.azx8788.autoclicker.engine
 
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.PowerManager
 import android.os.SystemClock
 import com.azx8788.autoclicker.model.Actions
 import com.azx8788.autoclicker.model.ClickAction
+import androidx.core.content.ContextCompat
 import com.azx8788.autoclicker.service.ClickAccessibilityService
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
@@ -23,6 +26,7 @@ object ClickEngine {
     private val chains = CopyOnWriteArrayList<Thread>()
     private var contextRef: Context? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var screenReceiver: BroadcastReceiver? = null
 
     fun start(context: Context, actions: List<ClickAction>) = synchronized(lock) {
         if (running) return
@@ -36,6 +40,7 @@ object ClickEngine {
         remainingLimited.set(active.count { it.repeatCount > 0 })
         chains.clear()
         acquireWakeLock(context.applicationContext)
+        registerScreenOff(context.applicationContext)
         active.forEach { a ->
             chains.add(thread(isDaemon = true, name = "chain-${a.label}") { chainLoop(a) })
         }
@@ -50,6 +55,7 @@ object ClickEngine {
         chains.clear()
         ClickAccessibilityService.instance?.clearPending()
         releaseWakeLock()
+        unregisterScreenOff()
         broadcast(false)
     }
 
@@ -89,8 +95,29 @@ object ClickEngine {
             chains.clear()
             ClickAccessibilityService.instance?.clearPending()
             releaseWakeLock()
+            unregisterScreenOff()
             broadcast(false)
         }
+    }
+
+    private fun registerScreenOff(ctx: Context) {
+        if (screenReceiver != null) return
+        val r = object : BroadcastReceiver() {
+            override fun onReceive(c: Context?, i: Intent?) {
+                if (i?.action == Intent.ACTION_SCREEN_OFF) stop()
+            }
+        }
+        try {
+            ContextCompat.registerReceiver(ctx, r,
+                IntentFilter(Intent.ACTION_SCREEN_OFF), ContextCompat.RECEIVER_NOT_EXPORTED)
+            screenReceiver = r
+        } catch (t: Throwable) {}
+    }
+
+    private fun unregisterScreenOff() {
+        val r = screenReceiver ?: return
+        screenReceiver = null
+        try { contextRef?.unregisterReceiver(r) } catch (t: Throwable) {}
     }
 
     private fun acquireWakeLock(ctx: Context) {

@@ -3,6 +3,7 @@ package com.azx8788.autoclicker.service
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -40,6 +41,7 @@ class FloatingPanelService : Service() {
     private var dialogView: View? = null
     private var receiver: android.content.BroadcastReceiver? = null
     private var panelAlpha = 90
+    private var panelConsuming = false
 
     private val clickers = mutableListOf<ClickAction>()
     private val markers = mutableListOf<TextView>()
@@ -49,9 +51,15 @@ class FloatingPanelService : Service() {
         private const val NOTIF_ID = 1
         private const val MARKER_SIZE = 46
         private const val BTN_SIZE = 46
+        private const val ACTION_STOP = "com.azx8788.autoclicker.STOP"
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) ClickEngine.stop()
+        return START_NOT_STICKY
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -77,7 +85,7 @@ class FloatingPanelService : Service() {
     // ================= 控制面板 =================
 
     private fun buildPanel() {
-        val panel = LinearLayout(this).apply {
+        val panel = PanelLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(6), dp(4), dp(6), dp(6))
             background = panelBg()
@@ -417,13 +425,18 @@ class FloatingPanelService : Service() {
         }
     }
 
-    private fun buildNotification(): Notification =
-        NotificationCompat.Builder(this, CHAN)
+    private fun buildNotification(): Notification {
+        val stopIntent = PendingIntent.getService(this, 1,
+            Intent(this, FloatingPanelService::class.java).setAction(ACTION_STOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        return NotificationCompat.Builder(this, CHAN)
             .setContentTitle("自动点击器")
-            .setContentText("悬浮窗运行中")
+            .setContentText("悬浮窗运行中（音量减键/触碰面板可停止）")
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .setOngoing(true)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "停止连点", stopIntent)
             .build()
+    }
 
     private fun makeButton(text: String, onClick: () -> Unit): Button =
         Button(this).apply {
@@ -447,6 +460,24 @@ class FloatingPanelService : Service() {
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+
+    private inner class PanelLayout(context: Context) : LinearLayout(context) {
+        override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+            if (ev.action == MotionEvent.ACTION_DOWN && ClickEngine.running) {
+                panelConsuming = true
+                ClickEngine.stop()
+                toast("已停止连点")
+                return true
+            }
+            if (panelConsuming) {
+                if (ev.action == MotionEvent.ACTION_UP || ev.action == MotionEvent.ACTION_CANCEL) {
+                    panelConsuming = false
+                }
+                return true
+            }
+            return super.dispatchTouchEvent(ev)
+        }
+    }
 
     private inner class DragHandler(private val onEnd: ((Int, Int) -> Unit)? = null) : View.OnTouchListener {
         private var startX = 0

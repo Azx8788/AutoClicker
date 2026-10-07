@@ -9,12 +9,14 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.MotionEvent
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.azx8788.autoclicker.engine.ClickEngine
 import com.azx8788.autoclicker.service.ClickAccessibilityService
 import com.azx8788.autoclicker.service.FloatingPanelService
 import com.azx8788.autoclicker.shizuku.ShizukuAutoGrant
@@ -35,7 +37,19 @@ class MainActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
 
-        findViewById<Button>(R.id.btn_run).setOnClickListener {
+        val btnRun = findViewById<Button>(R.id.btn_run)
+        btnRun.setOnTouchListener { _, ev ->
+            if (ev.action == MotionEvent.ACTION_DOWN && ClickEngine.running) {
+                ClickEngine.stop()
+                Toast.makeText(this, "已停止连点", Toast.LENGTH_SHORT).show()
+                true
+            } else false
+        }
+        btnRun.setOnClickListener {
+            if (ClickEngine.running) {
+                ClickEngine.stop()
+                return@setOnClickListener
+            }
             if (!Settings.canDrawOverlays(this)) {
                 Toast.makeText(this, "请先授予悬浮窗权限或点击 Shizuku 一键授权", Toast.LENGTH_SHORT).show()
                 startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))

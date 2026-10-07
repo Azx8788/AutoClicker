@@ -6,7 +6,9 @@ import android.content.Intent
 import android.graphics.Path
 import android.os.Handler
 import android.os.Looper
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
+import android.widget.Toast
 import com.azx8788.autoclicker.engine.ClickEngine
 import com.azx8788.autoclicker.model.ActionType
 import com.azx8788.autoclicker.model.ClickAction
@@ -29,6 +31,7 @@ class ClickAccessibilityService : AccessibilityService() {
     private val queue = LinkedBlockingQueue<ClickAction>(QUEUE_CAPACITY)
     @Volatile private var busy = false
     @Volatile private var stopped = false
+    private var volumeDownConsumed = false
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -40,6 +43,29 @@ class ClickAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
     override fun onInterrupt() {}
+
+    override fun onKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode != KeyEvent.KEYCODE_VOLUME_DOWN) return false
+        when (event.action) {
+            KeyEvent.ACTION_DOWN -> {
+                if (volumeDownConsumed || ClickEngine.running) {
+                    if (!volumeDownConsumed) {
+                        volumeDownConsumed = true
+                        ClickEngine.stop()
+                        Toast.makeText(this, "已通过音量键停止连点", Toast.LENGTH_SHORT).show()
+                    }
+                    return true
+                }
+            }
+            KeyEvent.ACTION_UP -> {
+                if (volumeDownConsumed) {
+                    volumeDownConsumed = false
+                    return true
+                }
+            }
+        }
+        return false
+    }
 
     override fun onUnbind(intent: Intent?): Boolean {
         instance = null; ready = false; busy = false; queue.clear()
